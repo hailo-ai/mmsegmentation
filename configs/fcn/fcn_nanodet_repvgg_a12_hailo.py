@@ -13,27 +13,28 @@ runner = dict(type='EpochBasedRunner', max_epochs=40)
 checkpoint_config = dict(by_epoch=True, interval=5)
 evaluation = dict(interval=5, metric='mIoU', pre_eval=True)
 
+fpn_cfg =dict(
+    name="PAN",
+    in_channels=[128, 128, 256],
+    out_channels=128,
+    start_level=0,
+    num_outs=3,
+)
+
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 model = dict(
     type='EncoderDecoder',
-    pretrained='torchvision://resnet18',
     backbone=dict(
-        type='ResNet',
-        depth=18,
-        num_stages=4,
-        out_indices=(0, 1, 2, 3),
-        dilations=(1, 1, 1, 1),
-        strides=(1, 2, 2, 2),
-        norm_cfg=norm_cfg,
-        norm_eval=False,
-        style='pytorch',
-        contract_dilation=True),
+        type='RepVGG',
+        num_blocks=[2, 4, 14, 1],
+        width_multiplier=[1, 1, 0.5, 2.5], 
+        override_groups_map=None, deploy=False, fpn_cfg=fpn_cfg),
     decode_head=dict(
         type='FCNGenHead',
-        in_channels=[256, 512],
+        in_channels=[128, 128],
         input_transform='multiple_select',
-        in_index=[2, 3],
-        channels=512,
+        in_index=[1, 2],  # nanodet_repvgg backbone outputs = [batch, 128, 80, 80], [batch, 128, 40, 40], [batch, 128, 20, 20] - this selects [batch, 128, 40, 40], [batch, 128, 20, 20]  for the decode head
+        channels=128,
         num_convs=0,
         concat_input=False,
         dropout_ratio=0.1,
