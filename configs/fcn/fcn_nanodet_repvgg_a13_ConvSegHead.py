@@ -35,7 +35,7 @@ model = dict(
         in_index=0,  # nanodet_repvgg backbone outputs = [batch, 128, 80, 80], [batch, 128, 40, 40], [batch, 128, 20, 20] - this selects [batch, 128, 40, 40], [batch, 128, 20, 20]  for the decode head
         channels=128,
         num_convs=1,
-        num_classes=3,
+        num_classes=19,
         norm_cfg=norm_cfg,
         align_corners=True,
         loss_decode=dict(
