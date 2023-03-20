@@ -30,14 +30,11 @@ model = dict(
         width_multiplier=[1, 1, 0.5, 2.5], 
         override_groups_map=None, deploy=False, fpn_cfg=fpn_cfg),
     decode_head=dict(
-        type='FCNGenHead',
-        in_channels=[128, 128],
-        input_transform='multiple_select',
-        in_index=[1, 2],  # nanodet_repvgg backbone outputs = [batch, 128, 80, 80], [batch, 128, 40, 40], [batch, 128, 20, 20] - this selects [batch, 128, 40, 40], [batch, 128, 20, 20]  for the decode head
+        type='ConvHead',
+        in_channels=128,
+        in_index=0,  # nanodet_repvgg backbone outputs = [batch, 128, 80, 80], [batch, 128, 40, 40], [batch, 128, 20, 20] - this selects [batch, 128, 40, 40], [batch, 128, 20, 20]  for the decode head
         channels=128,
-        num_convs=0,
-        concat_input=False,
-        dropout_ratio=0.1,
+        num_convs=1,
         num_classes=19,
         norm_cfg=norm_cfg,
         align_corners=True,
