@@ -1,6 +1,6 @@
 # model settings
 _base_ = [
-    '../_base_/datasets/dataset_5000.py', '../_base_/default_runtime.py',
+    '../_base_/datasets/cityscapes.py', '../_base_/default_runtime.py',
 ]
 # optimizer
 optimizer = dict(type='Adam', lr=1e-3, weight_decay=1e-5)
