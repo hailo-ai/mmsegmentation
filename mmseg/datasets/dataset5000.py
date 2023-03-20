@@ -11,7 +11,7 @@ from .custom import CustomDataset
 
 
 @DATASETS.register_module()
-class PanaDataset(CustomDataset):
+class DataSet5000(CustomDataset):
     """Cityscapes dataset.
 
     The ``img_suffix`` is fixed to '_leftImg8bit.png' and ``seg_map_suffix`` is
@@ -26,7 +26,7 @@ class PanaDataset(CustomDataset):
                  img_suffix='.png',
                  seg_map_suffix='_labelTrainIds.png',
                  **kwargs):
-        super(PanaDataset, self).__init__(
+        super(DataSet5000, self).__init__(
             img_suffix=img_suffix, seg_map_suffix=seg_map_suffix, **kwargs)
 
     @staticmethod
@@ -154,7 +154,7 @@ class PanaDataset(CustomDataset):
             metrics.remove('cityscapes')
         if len(metrics) > 0:
             eval_results.update(
-                super(PanaDataset,
+                super(DataSet5000,
                       self).evaluate(results, metrics, logger))
 
         return eval_results

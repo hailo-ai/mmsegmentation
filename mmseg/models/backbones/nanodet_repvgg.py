@@ -203,7 +203,6 @@ class RepVGG(nn.Module):
             x = stage(x)
             if i > 1:
                 output.append(x)
-        
         if hasattr(self, 'fpn'):
             output = self.fpn(output) # output = [batch, 128, 80, 80], [batch, 128, 40, 40], [batch, 128, 20, 20]
         return output

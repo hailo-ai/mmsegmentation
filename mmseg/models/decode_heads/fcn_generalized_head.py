@@ -93,7 +93,7 @@ class FCNGenHead(BaseDecodeHead):
         output = self.convs(x1)
         if self.concat_input:
             output = self.conv_cat(torch.cat([x1, output], dim=1))
-        output = self.cls_seg(output) # [batch, channels, w/32, h/32] -> [batch, #classes, w/32, h/32]
+        output = self.cls_seg(output)
         features = x[:-1] if self.input_transform == 'multiple_select' else []
         upsample_heads = [m for name, m in self.named_children()
                           if 'upsample_head' in name]
@@ -101,7 +101,7 @@ class FCNGenHead(BaseDecodeHead):
                      if 'cls_head' in name]
         # We keep the indices in an intuitive way in the config, so the order is actually reversed
         for inp, upsample_head, cls_head in reversed(list(zip(features, upsample_heads, cls_heads))):
-            prev = upsample_head(output)    #[batch, #classes, w/32, h/32] -> [batch, #classes, w/16, h/16]
+            prev = upsample_head(output)
             cur = cls_head(inp)
             output = prev + cur
         return output
