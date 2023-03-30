@@ -11,17 +11,14 @@ from .decode_head import BaseDecodeHead
 class ConvHead(BaseDecodeHead):
     def __init__(self,
                 num_convs=2,
-                input_channels=128,
-                output_channels=128,
                 **kwargs):
         super(ConvHead, self).__init__(**kwargs)
 
         self.num_convs = num_convs
-        self.input_channels = input_channels
-        self.output_channels = output_channels
+        self.output_channels = self.channels
 
         self.conv_layers = nn.ModuleList()
-        in_channels = self.input_channels
+        in_channels = self.in_channels
         for i in range(self.num_convs):
             self.conv_layers.append(nn.Conv2d(in_channels, self.output_channels, kernel_size=3, padding=1))
             in_channels = self.output_channels
