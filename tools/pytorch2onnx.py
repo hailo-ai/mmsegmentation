@@ -148,6 +148,11 @@ def pytorch2onnx(model,
         dynamic_export (bool): Whether to export ONNX with dynamic axis.
             Default: False.
     """
+
+    for module in model.modules():
+        if hasattr(module, 'switch_to_deploy'):
+            module.switch_to_deploy()
+
     model.cpu().eval()
     test_mode = model.test_cfg.mode
 
