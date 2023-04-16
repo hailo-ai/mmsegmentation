@@ -1,6 +1,6 @@
 # model settings
 _base_ = [
-    '../_base_/datasets/cityscapes.py', '../_base_/default_runtime.py',
+    '../_base_/datasets/dataset_5000_wo_overlap.py', '../_base_/default_runtime.py',
 ]
 # optimizer
 optimizer = dict(type='Adam', lr=1e-3, weight_decay=1e-5)
@@ -21,11 +21,11 @@ model = dict(
         type='YOLOv6FPN'),
     decode_head=dict(
         type='ConvHead',
-        in_channels=32,
+        in_channels=16,
         in_index=0,
         channels=128,
         num_convs=1,
-        num_classes=19,
+        num_classes=3,
         norm_cfg=norm_cfg,
         align_corners=True,
         loss_decode=dict(

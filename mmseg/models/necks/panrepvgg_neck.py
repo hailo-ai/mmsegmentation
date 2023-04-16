@@ -61,6 +61,9 @@ class PANRepVGGNeck(nn.Module):
         assert channels_list is not None
         assert num_repeats is not None
 
+
+        '''
+        ################################### org size #######################################################
         self.neck_p4 = make_repvgg_stage(192, 64, neck_num_repeats[0])
         self.neck_p3 = make_repvgg_stage(96, 32, neck_num_repeats[1])
         self.neck_n3 = make_repvgg_stage(64, 64, neck_num_repeats[2])
@@ -75,6 +78,25 @@ class PANRepVGGNeck(nn.Module):
             ConvBNAct(in_channels=32, out_channels=32, kernel_size=3, stride=2)
         )
         self.downsample1 = ConvBNAct(in_channels=64, out_channels=64, kernel_size=3, stride=2)
+        ########################################################################################################
+        '''
+
+        ##################################### SS size ###########################################
+        self.neck_p4 = make_repvgg_stage(96, 32, neck_num_repeats[0])
+        self.neck_p3 = make_repvgg_stage(48, 16, neck_num_repeats[1])
+        self.neck_n3 = make_repvgg_stage(32, 32, neck_num_repeats[2])
+        self.neck_n4 = make_repvgg_stage(64, 64, neck_num_repeats[3])
+
+        self.align_channels0 = ConvBNAct(in_channels=128, out_channels=32, kernel_size=1)
+        self.upsample0 = Transpose()
+        self.align_channels1 = ConvBNAct(in_channels=32, out_channels=16, kernel_size=1)
+        self.upsample1 = Transpose()
+        self.downsample2 = nn.Sequential(
+            ConvBNAct(in_channels=16, out_channels=16, kernel_size=3),  # Added to Tal's request
+            ConvBNAct(in_channels=16, out_channels=16, kernel_size=3, stride=2)
+        )
+        self.downsample1 = ConvBNAct(in_channels=32, out_channels=32, kernel_size=3, stride=2)
+
 
     def forward(self, input):
         """
@@ -90,7 +112,6 @@ class PANRepVGGNeck(nn.Module):
                 outputs[2] - /32 resolution feature map
         """
         (x2, x1, x0) = input
-
         fpn_out0 = self.align_channels0(x0)
         upsample_features0 = self.upsample0(fpn_out0)
         f_concat_layer0 = torch.cat([upsample_features0, x1], 1)
@@ -99,15 +120,15 @@ class PANRepVGGNeck(nn.Module):
         fpn_out1 = self.align_channels1(f_out0)
         upsample_features1 = self.upsample1(fpn_out1)
         f_concat_layer1 = torch.cat([upsample_features1, x2], 1)
-        pan_out2 = self.neck_p3(f_concat_layer1)
+        pan_out2 = self.neck_p3(f_concat_layer1)  # 92,120,48 -> 92,120,16
 
-        down_features1 = self.downsample2(pan_out2)
-        p_concat_layer1 = torch.cat([down_features1, fpn_out1], 1)
-        pan_out1 = self.neck_n3(p_concat_layer1)
+        down_features1 = self.downsample2(pan_out2) # 92,120,16 -> 46,60,16
+        p_concat_layer1 = torch.cat([down_features1, fpn_out1], 1)  # 46,60,16 cat 46,60,16 -> 46,60,32
+        pan_out1 = self.neck_n3(p_concat_layer1)  # 46,60,32 -> 46,60,32
 
-        down_features0 = self.downsample1(pan_out1)
-        p_concat_layer2 = torch.cat([down_features0, fpn_out0], 1)
-        pan_out0 = self.neck_n4(p_concat_layer2)
+        down_features0 = self.downsample1(pan_out1)  # 23,30,32
+        p_concat_layer2 = torch.cat([down_features0, fpn_out0], 1) # 23,30,32 cat 23,30,32 -> 23,30,64
+        pan_out0 = self.neck_n4(p_concat_layer2) # 23,30,64 -> 23,30,34
 
         outputs = [pan_out2, pan_out1, pan_out0]
 
