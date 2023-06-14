@@ -118,7 +118,6 @@ class EncoderDecoder(BaseSegmentor):
 
     def extract_feat(self, inputs: Tensor) -> List[Tensor]:
         """Extract features from images."""
-        import ipdb; ipdb.set_trace()
         x = self.backbone(inputs)
         if self.with_neck:
             x = self.neck(x)
@@ -128,7 +127,6 @@ class EncoderDecoder(BaseSegmentor):
                       batch_img_metas: List[dict]) -> Tensor:
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
-        import ipdb; ipdb.set_trace()
         x = self.extract_feat(inputs)
         seg_logits = self.decode_head.predict(x, batch_img_metas,
                                               self.test_cfg)
@@ -332,7 +330,6 @@ class EncoderDecoder(BaseSegmentor):
             Tensor: The segmentation results, seg_logits from model of each
                 input image.
         """
-        import ipdb; ipdb.set_trace()
         assert self.test_cfg.mode in ['slide', 'whole']
         ori_shape = batch_img_metas[0]['ori_shape']
         assert all(_['ori_shape'] == ori_shape for _ in batch_img_metas)
