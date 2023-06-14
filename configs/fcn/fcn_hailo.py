@@ -10,13 +10,13 @@ optim_wrapper = dict(type='OptimWrapper', optimizer=optimizer, clip_grad=None)
 # learning policy
 param_scheduler = [
 	dict(
-		type='LinearLR', start_factor=0.2, by_epoch=True, begin=0, end=5),
+		type='LinearLR', start_factor=0.2, by_epoch=False, begin=0, end=7440),
     dict(
-        type='CosineAnnealingLR', begin=5, by_epoch=True, end=40)
+        type='CosineAnnealingLR', begin=7440, by_epoch=False, end=59520)
 ]
 
 # runtime settings
-train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=40, val_interval=1)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=59520, val_interval=1488)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -32,13 +32,6 @@ default_hooks = dict(
     # save checkpoint every 5 epochs.
     checkpoint=dict(type='CheckpointHook', by_epoch=True, interval=5),
 )
-
-log_processor = dict(
-    by_epoch=True
-)
-
-# override train_dataloader sampler to work with epochs
-train_dataloader = dict(sampler=None)
 
 # tensorboard vis
 vis_backends = [dict(type='LocalVisBackend'),
