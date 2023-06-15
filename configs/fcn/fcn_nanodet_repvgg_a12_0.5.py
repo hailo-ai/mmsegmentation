@@ -30,7 +30,7 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
 
     # save checkpoint every 5 epochs.
-    checkpoint=dict(type='CheckpointHook', by_epoch=True, interval=5),
+    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=7440),
 )
 
 # tensorboard vis

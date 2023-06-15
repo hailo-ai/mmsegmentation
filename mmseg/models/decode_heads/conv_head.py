@@ -26,7 +26,7 @@ class ConvHead(BaseDecodeHead):
 
     def forward(self, inputs):
         """Forward function."""
-        x = inputs[self.in_index]
+        x = inputs
 
         for conv_layer in self.conv_layers:
             x = nn.functional.relu(conv_layer(x))

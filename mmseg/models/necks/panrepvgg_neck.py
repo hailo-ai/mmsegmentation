@@ -66,18 +66,11 @@ class PANRepVGGNeck(nn.Module):
 
         self.neck_p4 = make_repvgg_stage(channels[2] + channels[4], channels[4], neck_num_repeats[0])  # 192 --> 64
         self.neck_p3 = make_repvgg_stage(channels[1] + channels[5], channels[5], neck_num_repeats[1])  # 96 --> 32
-        self.neck_n3 = make_repvgg_stage(channels[5] + channels[6], channels[8], neck_num_repeats[2])  # 64 --> 64
-        self.neck_n4 = make_repvgg_stage(channels[4] + channels[7], channels[9], neck_num_repeats[3])  # 128 --> 128
 
         self.align_channels0 = ConvBNAct(in_channels=channels[3], out_channels=channels[4], kernel_size=1)  # 256 --> 64
         self.upsample0 = Transpose()
         self.align_channels1 = ConvBNAct(in_channels=channels[4], out_channels=channels[5], kernel_size=1)  # 64 --> 32
         self.upsample1 = Transpose()
-        self.downsample2 = nn.Sequential(
-            ConvBNAct(in_channels=channels[6], out_channels=channels[6], kernel_size=3),  # 32 --> 32
-            ConvBNAct(in_channels=channels[6], out_channels=channels[6], kernel_size=3, stride=2)  # 32 --> 32
-        )
-        self.downsample1 = ConvBNAct(in_channels=channels[7], out_channels=channels[7], kernel_size=3, stride=2)  # 64 --> 64
 
     def forward(self, input):
         """
@@ -89,8 +82,6 @@ class PANRepVGGNeck(nn.Module):
         Returns:
             List[Tensor]: neck output features:
                 outputs[0] - /8 resolution feature map
-                outputs[1] - /16 resolution feature map
-                outputs[2] - /32 resolution feature map
         """
         (x2, x1, x0) = input
 
@@ -104,13 +95,4 @@ class PANRepVGGNeck(nn.Module):
         f_concat_layer1 = torch.cat([upsample_features1, x2], 1)
         pan_out2 = self.neck_p3(f_concat_layer1)
 
-        down_features1 = self.downsample2(pan_out2)
-        p_concat_layer1 = torch.cat([down_features1, fpn_out1], 1)
-        pan_out1 = self.neck_n3(p_concat_layer1)
-
-        down_features0 = self.downsample1(pan_out1)
-        p_concat_layer2 = torch.cat([down_features0, fpn_out0], 1)
-        pan_out0 = self.neck_n4(p_concat_layer2)
-
-        outputs = [pan_out2, pan_out1, pan_out0]
-        return outputs
+        return pan_out2

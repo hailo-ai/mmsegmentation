@@ -29,7 +29,7 @@ class ConvHeadx4(BaseDecodeHead):
 
     def forward(self, inputs):
         """Forward function."""
-        x = inputs[self.in_index]
+        x = inputs
         x = self.bilinear_resize(x)   # [h/8, w/8] -> [h/4, w/4]
 
         for conv_layer in self.conv_layers:
