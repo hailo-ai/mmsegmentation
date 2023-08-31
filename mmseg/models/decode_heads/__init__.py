@@ -10,6 +10,7 @@ from .dpt_head import DPTHead
 from .ema_head import EMAHead
 from .enc_head import EncHead
 from .fcn_head import FCNHead
+from .full_pp_head import PostProcess
 from .fcn_generalized_head import FCNGenHead
 from .conv_head import ConvHead
 from .conv_head_x4 import ConvHeadx4
@@ -37,7 +38,7 @@ from .stdc_head import STDCHead
 from .uper_head import UPerHead
 
 __all__ = [
-    'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
+    'FCNHead', 'PostProcess', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
     'UPerHead', 'DepthwiseSeparableASPPHead', 'ANNHead', 'DAHead', 'OCRHead',
     'EncHead', 'DepthwiseSeparableFCNHead', 'FPNHead', 'FCNGenHead', 'EMAHead', 'DNLHead',
     'PointHead', 'APCHead', 'DMHead', 'LRASPPHead', 'SETRUPHead',
