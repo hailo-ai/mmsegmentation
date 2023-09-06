@@ -1,6 +1,6 @@
 # model settings
 _base_ = [
-    '../_base_/datasets/cityscapes.py', '../_base_/default_runtime.py',
+    '../_base_/datasets/cityscapes10classes.py', '../_base_/default_runtime.py',
 ]
 
 # optimizer
@@ -64,7 +64,7 @@ model = dict(
         in_channels=16,
         channels=128,
         num_convs=1,
-        num_classes=19,
+        num_classes=10,
         norm_cfg=norm_cfg,
         align_corners=True,
         loss_decode=dict(
