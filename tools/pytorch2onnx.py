@@ -19,15 +19,60 @@ from mmseg.models.utils import resize
 
 import torch.nn.functional as F
 
+from collections import OrderedDict
+import warnings
+
+def load_pretrained_weights_soft(model, checkpoint):
+
+    if 'state_dict' in checkpoint:
+        state_dict = checkpoint['state_dict']
+    elif 'model' in checkpoint:
+        state_dict = checkpoint['model']
+    else:
+        state_dict = checkpoint
+
+    model_dict = model.state_dict()
+    new_state_dict = OrderedDict()
+    matched_layers, discarded_layers = [], []
+
+    for k, v in state_dict.items():
+        if k.startswith('module.'):
+            k = k[7:] # discard module.
+
+        if k in model_dict and model_dict[k].size() == v.size():
+            new_state_dict[k] = v
+            matched_layers.append(k)
+        else:
+            discarded_layers.append(k)
+
+    model_dict.update(new_state_dict)
+    model.load_state_dict(model_dict)
+
+    if len(matched_layers) == 0:
+        warnings.warn(
+            'The pretrained weights "{}" cannot be loaded, '
+            'please check the key names manually '
+            '(** ignored and continue **)'
+        )
+    else:
+        print('Successfully loaded pretrained weights')
+        if len(discarded_layers) > 0:
+            print(
+                '** The following layers are discarded '
+                'due to unmatched keys or layer size: {}'.
+                format(discarded_layers)
+            )
+
 
 def parse_args():
     parser.add_argument('config', help='train config file path')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument('--checkpoint', help='checkpoint file', default=None)
     parser.add_argument('--no_simplify', action='store_false')
-    parser.add_argument('--no_postprocess', action='store_false', default=False)
+    parser.add_argument('--no_postprocess', action='store_true', default=False)
     parser.add_argument('--shape', nargs=2, type=int, default=[1024, 1920])
     parser.add_argument('--out_name', default='fcn.onnx', type=str, help="Name for the onnx output")
+    parser.add_argument('--soft_weights_loading',action='store_true', default=False)
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -64,13 +109,11 @@ class ModelWithPostProc(torch.nn.Module):
 
         def forward(self, x):
             x = self.model(x)
-            batch_size, C, H, W = x.shape
             if self.post_proc_flag:
-                    x = self.bilinear_resize(x)
-                    if C > 1:
-                        x = x.argmax(dim=1, keepdim=True)
+                x = self.bilinear_resize(x)
+                if x.shape[1] > 1:
+                    x = x.argmax(dim=1, keepdim=True)
             return x
-
 
 
 def main():
@@ -105,10 +148,13 @@ def main():
     model = runner.model
     if args.checkpoint:
         ckpt = torch.load(args.checkpoint, map_location='cpu')
-        if 'state_dict' in ckpt:
-            model.load_state_dict(ckpt['state_dict'])
+        if args.soft_weights_loading:
+            load_pretrained_weights_soft(model, ckpt)
         else:
-            model.load_state_dict(ckpt)
+            if 'state_dict' in ckpt:
+                model.load_state_dict(ckpt['state_dict'])
+            else:
+                model.load_state_dict(ckpt)
     
     # if repvgg style -> deploy
     for module in model.modules():
