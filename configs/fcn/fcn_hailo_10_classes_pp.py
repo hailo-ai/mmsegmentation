@@ -42,8 +42,6 @@ norm_cfg = dict(type='SyncBN', requires_grad=True)
 crop_size = (512, 1024)
 data_preprocessor = dict(
     type='SegDataPreProcessor',
-    # mean=[123.675, 116.28, 103.53],
-    # std=[58.395, 57.12, 57.375],
     mean=[0.0, 0.0, 0.0],
     std=[1.0, 1.0, 1.0],
     bgr_to_rgb=True,
