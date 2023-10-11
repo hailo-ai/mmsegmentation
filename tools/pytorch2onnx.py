@@ -64,6 +64,44 @@ def load_pretrained_weights_soft(model, checkpoint):
             )
 
 
+def dummy_prune_ckpt(ckpt, prune_ratio=0.5):
+    pass
+    for k, v in ckpt['state_dict'].items():
+        if k.startswith('backbone.') and k.endswith('.rbr_dense.conv.weight'):
+            # Sparsify layer:
+            v = dummy_prune_layer(v, prune_ratio)
+    calc_sparsity(ckpt['state_dict'])
+    return ckpt
+
+def dummy_prune_layer(layer, prune_ratio=0.5):
+    # Flatten the tensor
+    flattened_layer = layer.flatten()
+    # Get the absolute values
+    abs_values = torch.abs(flattened_layer)
+    # Get indices sorted by absolute values
+    sorted_indices = torch.argsort(abs_values)
+    # Determine the threshold index
+    threshold_index = int(prune_ratio * len(sorted_indices))
+    # Set values below the threshold to zero
+    flattened_layer[sorted_indices[:threshold_index]] = 0
+    # Reshape the tensor back to its original shape
+    pruned_tensor = flattened_layer.reshape(layer.shape)
+
+    return pruned_tensor
+
+def calc_sparsity(model_dict):
+    weights_layers_num, total_weights, total_zeros = 0, 0, 0
+    for k, v in model_dict.items():
+        if k.startswith('backbone.') and k.endswith('weight'):
+            weights_layers_num += 1
+            total_weights += v.numel()
+            total_zeros += (v.numel() - v.count_nonzero())
+            zeros_ratio = (v.numel() - v.count_nonzero()) / v.numel() * 100.0
+            print(f"[{weights_layers_num:>2}] {k:<51}:: {v.numel() - v.count_nonzero():<5} / {v.numel():<7} ({zeros_ratio:<4.1f}%) are zeros")
+    print(f"Model has {weights_layers_num} weight layers")
+    print(f"Overall Sparsity is roughly: {100 * total_zeros / total_weights:.1f}%")
+
+
 def parse_args():
     parser.add_argument('config', help='train config file path')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
@@ -149,6 +187,7 @@ def main():
     if args.checkpoint:
         ckpt = torch.load(args.checkpoint, map_location='cpu')
         if args.soft_weights_loading:
+            ckpt = dummy_prune_ckpt(ckpt, 0.6)
             load_pretrained_weights_soft(model, ckpt)
         else:
             if 'state_dict' in ckpt:
@@ -156,10 +195,12 @@ def main():
             else:
                 model.load_state_dict(ckpt)
     
+    print("Switching to deployment model")
     # if repvgg style -> deploy
     for module in model.modules():
         if hasattr(module, 'switch_to_deploy'):
             module.switch_to_deploy()
+    calc_sparsity(model.state_dict())
 
     # to onnx
     model.eval()
