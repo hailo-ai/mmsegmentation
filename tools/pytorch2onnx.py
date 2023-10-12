@@ -111,6 +111,7 @@ def parse_args():
     parser.add_argument('--shape', nargs=2, type=int, default=[1024, 1920])
     parser.add_argument('--out_name', default='fcn.onnx', type=str, help="Name for the onnx output")
     parser.add_argument('--soft_weights_loading',action='store_true', default=False)
+    parser.add_argument('--dummy_prune_ratio', type=float, default=0.0)
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -187,7 +188,8 @@ def main():
     if args.checkpoint:
         ckpt = torch.load(args.checkpoint, map_location='cpu')
         if args.soft_weights_loading:
-            ckpt = dummy_prune_ckpt(ckpt, 0.6)
+            if args.dummy_prune_ratio > 0.0:
+                ckpt = dummy_prune_ckpt(ckpt, args.dummy_prune_ratio)
             load_pretrained_weights_soft(model, ckpt)
         else:
             if 'state_dict' in ckpt:
