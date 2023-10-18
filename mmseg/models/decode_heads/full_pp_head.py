@@ -52,9 +52,10 @@ class PostProcess(BaseDecodeHead):
         x = torch.nn.functional.one_hot(x, num_classes=self.num_classes)  
         x = torch.transpose(x, 1, 4)  # output is 1x10x240x736x1
         x = torch.squeeze(x, dim=-1)  # output is 1x10x240x736
+        x1, x2 = x[:, :-1, :, :], x[:, -1:, :, :]  # Explicit split for optimization
 
         # First output edge detector
-        out1 = x[:, :-1, :, :]  # output is 1x9x240x736. Assuming raindrop is last class
+        out1 = x1  # output is 1x9x240x736. Assuming raindrop is last class
         # out1 = torch.nn.functional.pad(out1, [1, 0, 0, 0])  # output is 1x9x240x737
         out1 = out1.to(torch.float32)
         out1 = torch.nn.functional.pad(out1, [0, 1, 0, 0], mode='constant', value=0.5)  # output is 1x9x240x737
@@ -69,11 +70,12 @@ class PostProcess(BaseDecodeHead):
         # argmax on channels. final output is 1x1x240x9
         out1 = torch.argmax(out1, dim=1, keepdim=True)
 
-        # second output is to reduce sum on final class. output is 4 integers of 1x1x1x1 so each one would be represented by 16 bit integer. Assuming raindrop is last class
-        out2, out3, out4, out5 = x[:, -1:, :, :184], x[:, -1:, :, 184:368], x[:, -1:, :, 368:552], x[:, -1:, :, 552:]
-        out2 = torch.sum(torch.sum(out2, dim=-1, keepdim=True), dim=-2, keepdim=True)
-        out3 = torch.sum(torch.sum(out3, dim=-1, keepdim=True), dim=-2, keepdim=True)
-        out4 = torch.sum(torch.sum(out4, dim=-1, keepdim=True), dim=-2, keepdim=True)
-        out5 = torch.sum(torch.sum(out5, dim=-1, keepdim=True), dim=-2, keepdim=True)
+        # second output is to reduce sum on final class. output is 4 integers of 1x1x4 so each one would be represented by 16 bit integer. Assuming raindrop is last class
+        sum1, sum2, sum3, sum4 = x2[:, 0, :60, :], x2[:, 0, 60:120, :], x2[:, 0, 120:180, :], x2[:, 0, 180:, :]
+        sum1 = torch.sum(torch.sum(sum1, dim=-1, keepdim=True), dim=-2, keepdim=True)
+        sum2 = torch.sum(torch.sum(sum2, dim=-1, keepdim=True), dim=-2, keepdim=True)
+        sum3 = torch.sum(torch.sum(sum3, dim=-1, keepdim=True), dim=-2, keepdim=True)
+        sum4 = torch.sum(torch.sum(sum4, dim=-1, keepdim=True), dim=-2, keepdim=True)
+        out2 = torch.cat((sum1, sum2, sum3, sum4), dim=2)
 
-        return out1, out2, out3, out4, out5
+        return out1, out2
