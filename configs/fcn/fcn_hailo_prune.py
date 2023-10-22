@@ -16,7 +16,7 @@ param_scheduler = [
 ]
 
 # runtime settings
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=59520, val_interval=1488)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=74400, val_interval=1488)  # 119040
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -77,4 +77,5 @@ model = dict(
     test_cfg=dict(mode='whole'),
     infer_wo_softmax=True)
 
+resume = True
 load_from='./fcn_hailo_10classes_sholev.pth'
