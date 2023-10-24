@@ -49,15 +49,23 @@ class SparseMLHook(Hook):
 
     def after_train_iter(self, runner, batch_idx, data_batch, outputs):  #, batch_idx=0, data_batch=None, outputs=None):
         # print(f"after_train_iter:: {batch_idx}")
-        if batch_idx % 1488 == 0:  # epoch
-            print(f"Epoch #{batch_idx % 1488} End")
+        if batch_idx % (1488*2) == 0:  # 2 Epochs
+            print(f"Epoch #{batch_idx // 1488} End")
             self._calc_sparsity(runner.model.state_dict(), runner.logger)
+
+    def after_test_epoch(self, runner, metrics):
+        runner.logger.info("Switching to deployment model")
+        # if repvgg style -> deploy
+        for module in runner.model.modules():
+            if hasattr(module, 'switch_to_deploy'):
+                module.switch_to_deploy()
+        self._calc_sparsity(runner.model.state_dict(), runner.logger)
 
     def _calc_sparsity(self, model_dict, logger):
         weights_layers_num, total_weights, total_zeros = 0, 0, 0
-        # import ipdb; ipdb.set_trace()
+        prefix = next(iter(model_dict)).split('backbone.stage0')[0]
         for k, v in model_dict.items():
-            if k.startswith('module.backbone.') and k.endswith('weight'):
+            if k.startswith(prefix) and k.endswith('weight'):
                 weights_layers_num += 1
                 total_weights += v.numel()
                 total_zeros += (v.numel() - v.count_nonzero())

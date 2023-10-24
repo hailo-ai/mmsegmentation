@@ -33,9 +33,6 @@ default_hooks = dict(
     checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=7440),
 )
 
-# custom hooks
-custom_hooks = [dict(type='SparseMLHook', interval=10, priority='ABOVE_NORMAL')]
-
 # tensorboard vis
 vis_backends = [dict(type='LocalVisBackend'),
                 dict(type='TensorboardVisBackend')]

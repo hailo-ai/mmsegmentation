@@ -16,7 +16,7 @@ param_scheduler = [
 ]
 
 # runtime settings
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=74400, val_interval=1488)  # 119040
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=104160, val_interval=1488)  # 74400 (50 epochs), 89280 (60 epochs), 104160 (70 epochs), 119040 (80 epochs)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -24,21 +24,21 @@ test_cfg = dict(type='TestLoop')
 default_hooks = dict(
 
     # print log every 100 iterations.
-    logger=dict(type='LoggerHook', interval=100, log_metric_by_epoch=False),
+    logger=dict(type='LoggerHook', interval=200, log_metric_by_epoch=False),
 
     # enable the parameter scheduler.
     param_scheduler=dict(type='ParamSchedulerHook'),
 
-    # save checkpoint every 5 epochs.
-    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=7440),
+    # save checkpoint every 2 epochs.
+    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=2976),  # 7440 (5 Epoches)
 )
 
 # custom hooks
-custom_hooks = [dict(type='SparseMLHook', interval=10, priority='ABOVE_NORMAL')]
+custom_hooks = [dict(type='SparseMLHook', interval=10, priority='NORMAL')]
 
 # tensorboard vis
 vis_backends = [dict(type='LocalVisBackend'),
-                dict(type='TensorboardVisBackend')]
+                dict(type='TensorboardVisBackend', draw=True, interval=10, save_dir='tf_dir')]  # , draw=True, interval=1
 
 # data preprocessing
 norm_cfg = dict(type='SyncBN', requires_grad=True)

@@ -11,9 +11,10 @@ weights_warmup_lr: 0
 biases_warmup_lr: 0
 
 # Pruning Hyperparams
-init_sparsity: 0.05
+init_sparsity: 0.02
+final_sparsity: 0.58
 pruning_start_epoch: 40
-pruning_end_epoch: 50
+pruning_end_epoch: 70
 pruning_update_frequency: 2.0
 
 #Modifiers
@@ -36,7 +37,7 @@ pruning_modifiers:
       - re:backbone.backbone.*.*.rbr_dense.conv.weight
       - re:backbone.neck.*.*.rbr_dense.conv.weight
     init_sparsity: eval(init_sparsity)
-    final_sparsity: eval(0.7)
+    final_sparsity: eval(final_sparsity)
     start_epoch: eval(pruning_start_epoch)
     end_epoch: eval(pruning_end_epoch)
     update_frequency: eval(pruning_update_frequency)
