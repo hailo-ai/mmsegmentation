@@ -12,7 +12,7 @@ param_scheduler = [
 	dict(
 		type='LinearLR', start_factor=0.2, by_epoch=False, begin=0, end=7440),
     dict(
-        type='CosineAnnealingLR', begin=7440, by_epoch=False, end=59520)
+        type='CosineAnnealingLR', begin=7440, end=59520, eta_min=0.00001, by_epoch=False)
 ]
 
 # runtime settings
@@ -24,18 +24,19 @@ test_cfg = dict(type='TestLoop')
 default_hooks = dict(
 
     # print log every 100 iterations.
-    logger=dict(type='LoggerHook', interval=100, log_metric_by_epoch=False),
+    logger=dict(type='LoggerHook', interval=200, log_metric_by_epoch=False),
 
     # enable the parameter scheduler.
     param_scheduler=dict(type='ParamSchedulerHook'),
 
     # save checkpoint every 5 epochs.
-    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=7440),
+    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=7440, save_best='mIoU', rule='greater', max_keep_ckpts=5),
 )
 
-# tensorboard vis
-vis_backends = [dict(type='LocalVisBackend'),
-                dict(type='TensorboardVisBackend')]
+# tensorboard vis ('LocalVisBackend' might be redundant)  save_dir='./tf_dir/<exp_name>'
+visualizer = dict(type='SegLocalVisualizer',
+                  vis_backends=[dict(type='LocalVisBackend'), dict(type='TensorboardVisBackend')],
+                  name='visualizer')
 
 # data preprocessing
 norm_cfg = dict(type='SyncBN', requires_grad=True)
