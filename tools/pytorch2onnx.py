@@ -64,14 +64,42 @@ def load_pretrained_weights_soft(model, checkpoint):
             )
 
 
-def dummy_prune_ckpt(ckpt, prune_ratio=0.5):
-    pass
+def dummy_prune_ckpt(ckpt, prune_ratio=0.5, random_prune=False):
     for k, v in ckpt['state_dict'].items():
         if k.startswith('backbone.') and k.endswith('.rbr_dense.conv.weight'):
-            # Sparsify layer:
-            v = dummy_prune_layer(v, prune_ratio)
+            if random_prune:  # Sparsify layer randomly:
+                v = random_prune_layer(v, prune_ratio)
+            else:  # Sparsify layer according to magnitude:
+                v = dummy_prune_layer(v, prune_ratio)
     calc_sparsity(ckpt['state_dict'])
     return ckpt
+
+
+def random_prune_layer(layer, prune_ratio=0.5):
+    """
+    Randomly prune (set to zero) a fraction of elements in a PyTorch tensor.
+
+    Args:
+        layer (torch.Tensor): Input tensor of shape [B, C, H, W].
+        prune_ratio (float): Fraction of elements to set to zero.
+
+    Returns:
+        torch.Tensor: Pruned tensor with the same shape as the input.
+    """
+    # Determine the number of elements to prune
+    num_elements = layer.numel()
+    num_prune = int(prune_ratio * num_elements)
+
+    # Create a mask with zeros and ones to select the elements to prune
+    mask = torch.ones(num_elements)
+    mask[:num_prune] = 0
+    mask = mask[torch.randperm(num_elements)]  # Shuffle the mask randomly
+    mask = mask.view(layer.shape)
+
+    # Apply the mask to the input tensor to prune it
+    layer *= mask
+    return layer
+
 
 def dummy_prune_layer(layer, prune_ratio=0.5):
     # Flatten the tensor
@@ -111,7 +139,8 @@ def parse_args():
     parser.add_argument('--shape', nargs=2, type=int, default=[1024, 1920])
     parser.add_argument('--out_name', default='fcn.onnx', type=str, help="Name for the onnx output")
     parser.add_argument('--soft_weights_loading',action='store_true', default=False)
-    parser.add_argument('--dummy_prune_ratio', type=float, default=0.0)
+    parser.add_argument('--dummy_prune_ratio', type=float, default=0.0, help="Applies dummy pruning with ratio")
+    parser.add_argument('--random_prune', action='store_true', default=False, help="Set method to prune as random (default: Minimum absolute value)")
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -189,7 +218,7 @@ def main():
         ckpt = torch.load(args.checkpoint, map_location='cpu')
         if args.soft_weights_loading:
             if args.dummy_prune_ratio > 0.0:
-                ckpt = dummy_prune_ckpt(ckpt, args.dummy_prune_ratio)
+                ckpt = dummy_prune_ckpt(ckpt, args.dummy_prune_ratio, args.random_prune)
             load_pretrained_weights_soft(model, ckpt)
         else:
             if 'state_dict' in ckpt:

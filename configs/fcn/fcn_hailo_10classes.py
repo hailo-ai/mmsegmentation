@@ -12,11 +12,11 @@ param_scheduler = [
 	dict(
 		type='LinearLR', start_factor=0.2, by_epoch=False, begin=0, end=7440),
     dict(
-        type='CosineAnnealingLR', begin=7440, end=59520, eta_min=0.00001, by_epoch=False)
+        type='CosineAnnealingLR', begin=7440, end=74400, eta_min=0.00001, by_epoch=False)
 ]
 
 # runtime settings
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=59520, val_interval=1488)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=74400, val_interval=1488)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -74,5 +74,3 @@ model = dict(
     train_cfg=dict(),
     test_cfg=dict(mode='whole'),
     infer_wo_softmax=True)
-
-load_from='./fcn_hailo_10classes_sholev.pth'

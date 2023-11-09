@@ -4,19 +4,19 @@
 version: 1.1.0
 
 # General Hyperparams
-start_epoch: 40
-num_epochs: 80
-init_lr: 0.00005
-final_lr: 0.00005
+start_epoch: 50
+num_epochs: 120
+init_lr: 0.00001
+final_lr: 0.00001
 weights_warmup_lr: 0
 biases_warmup_lr: 0
 
 # Pruning Hyperparams
 init_sparsity: 0.01
-final_sparsity: 0.58
-pruning_start_epoch: 40
-pruning_end_epoch: 70
-pruning_update_frequency: 2.0
+final_sparsity: 0.68
+pruning_start_epoch: 60
+pruning_end_epoch: 110
+pruning_update_frequency: 5.0
 
 #Modifiers
 training_modifiers:

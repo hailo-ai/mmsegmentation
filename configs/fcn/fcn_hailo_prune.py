@@ -4,15 +4,15 @@ _base_ = [
 ]
 
 resume = True
-load_from='./fcn_hailo_10classes_sholev.pth'
+load_from='./work_dirs/fcn_hailo_eta1e5/iter_68448.pth'
 
 # optimizer
-optimizer = dict(type='Adam', lr=0.001, weight_decay=1e-5)
+optimizer = dict(type='Adam', lr=0.0001, weight_decay=1e-5)
 optim_wrapper = dict(type='OptimWrapper', optimizer=optimizer, clip_grad=None)
 
 
 # runtime settings
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=89280, val_interval=1488)  # 74400 (50 epochs), 89280 (60 epochs), 104160 (70 epochs), 119040 (80 epochs)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=173760, val_interval=1488)  # 74400 (50 epochs), 89280 (60 epochs), 104160 (70 epochs), 119040 (80 epochs)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -26,7 +26,7 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
 
     # save checkpoint every 1 epoch.
-    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=1488, save_best='mIoU', rule='greater', max_keep_ckpts=5),  # 2976 (2Epoches), 7440 (5 Epoches) , max_keep_ckpts=5
+    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=2976, save_best='mIoU', rule='greater', max_keep_ckpts=5),  # 2976 (2Epoches), 7440 (5 Epoches) , max_keep_ckpts=5
 )
 
 # learning policy: taken from the recipe
