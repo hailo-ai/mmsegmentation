@@ -49,7 +49,7 @@ class PostProcess(BaseDecodeHead):
         x = torch.transpose(x, 2, 3)
 
         # torch.nn.functional.one_hot adds an extra dim at the end of the tensor so output is 1x1x240x736x10
-        x = torch.nn.functional.one_hot(x, num_classes=self.num_classes)  
+        x = torch.nn.functional.one_hot(x, num_classes=self.num_classes)
         x = torch.transpose(x, 1, 4)  # output is 1x10x240x736x1
         x = torch.squeeze(x, dim=-1)  # output is 1x10x240x736
         x1, x2 = x[:, :-1, :, :], x[:, -1:, :, :]  # Explicit split for optimization

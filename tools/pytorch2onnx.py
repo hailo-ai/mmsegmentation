@@ -135,7 +135,7 @@ def parse_args():
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument('--checkpoint', help='checkpoint file', default=None)
     parser.add_argument('--no_simplify', action='store_false')
-    parser.add_argument('--no_postprocess', action='store_true', default=False)
+    parser.add_argument('--postprocess', action='store_true', default=False)
     parser.add_argument('--shape', nargs=2, type=int, default=[1024, 1920])
     parser.add_argument('--out_name', default='fcn.onnx', type=str, help="Name for the onnx output")
     parser.add_argument('--soft_weights_loading',action='store_true', default=False)
@@ -171,13 +171,14 @@ class ModelWithPostProc(torch.nn.Module):
         def __init__(self, model, args):
             super(ModelWithPostProc, self).__init__()
             self.model = model
-            self.post_proc_flag = not(args.no_postprocess)
+            self.post_proc_flag = args.postprocess
             self.shape = args.shape
             self.bilinear_resize = nn.Upsample(size=self.shape, mode='bilinear', align_corners=True)
 
         def forward(self, x):
             x = self.model(x)
             if self.post_proc_flag:
+                print("Adding Postprocess (Resize+ArgMax) to the model")
                 x = self.bilinear_resize(x)
                 if x.shape[1] > 1:
                     x = x.argmax(dim=1, keepdim=True)
