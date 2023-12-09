@@ -13,7 +13,7 @@ biases_warmup_lr: 0
 
 # Pruning Hyperparams
 init_sparsity: 0.01
-final_sparsity: 0.68
+final_sparsity: 0.60
 pruning_start_epoch: 60
 pruning_end_epoch: 110
 pruning_update_frequency: 5.0
