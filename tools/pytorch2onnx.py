@@ -137,8 +137,9 @@ def parse_args():
     parser.add_argument('--no_simplify', action='store_false')
     parser.add_argument('--postprocess', action='store_true', default=False)
     parser.add_argument('--shape', nargs=2, type=int, default=[1024, 1920])
+    parser.add_argument('-o', '--opset', type=int, default=13)
     parser.add_argument('--out_name', default='fcn.onnx', type=str, help="Name for the onnx output")
-    parser.add_argument('--soft_weights_loading',action='store_true', default=False)
+    parser.add_argument('--soft_weights_loading', action='store_true', default=False)
     parser.add_argument('--dummy_prune_ratio', type=float, default=0.0, help="Applies dummy pruning with ratio")
     parser.add_argument('--random_prune', action='store_true', default=False, help="Set method to prune as random (default: Minimum absolute value)")
     parser.add_argument(
@@ -178,7 +179,6 @@ class ModelWithPostProc(torch.nn.Module):
         def forward(self, x):
             x = self.model(x)
             if self.post_proc_flag:
-                print("Adding Postprocess (Resize+ArgMax) to the model")
                 x = self.bilinear_resize(x)
                 if x.shape[1] > 1:
                     x = x.argmax(dim=1, keepdim=True)
@@ -236,21 +236,31 @@ def main():
 
     # to onnx
     model.eval()
+    if args.postprocess:
+        print("Adding Postprocess (Resize+ArgMax) to the model")
     model_with_postprocess = ModelWithPostProc(model, args)
     model_with_postprocess.eval()
+
     imgs = torch.zeros(1,3, args.shape[0], args.shape[1], dtype=torch.float32).to(device)
     outputs = model_with_postprocess(imgs)
 
-    torch.onnx.export(model_with_postprocess, imgs, args.out_name, input_names=['test_input'], output_names=['output'], training=torch.onnx.TrainingMode.PRESERVE, opset_version=13)
-    print('model saved at: ', args.out_name)
+    torch.onnx.export(model_with_postprocess,
+                      imgs, args.out_name,
+                      input_names=['test_input'],
+                      output_names=['output'],
+                      training=torch.onnx.TrainingMode.PRESERVE,
+                      opset_version=args.opset)
 
     # if also simplify
     if args.no_simplify:
         model_onnx = onnx.load(args.out_name)
         model_simp, check = simplify(model_onnx)
-        onnx.save(model_simp, args.out_name[0:-5] + '_simplify.onnx')
-        print('model simplified saved at: ', args.out_name[0:-5] + '_simplify.onnx')
+        onnx.save(model_simp, args.out_name)
+        print('Simplified model saved at: ', args.out_name)
+    else:
+        print('Model saved at: ', args.out_name)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(epilog='Example: CUDA_VISIBLE_DEVICES=0 python tools/pytorch2onnx.py configs/fcn/fcn8_r18_hailo.py --checkpoint work_dirs/fcn8_r18_hailo_iterbased/epoch_1.pth --out_name my_fcn_model.onnx --shape 600 800')
+    parser = argparse.ArgumentParser(
+        epilog='Example: CUDA_VISIBLE_DEVICES=0 python tools/pytorch2onnx.py configs/fcn/fcn_hailo_10classes.py --checkpoint work_dirs/fcn_hailo/iter_173760.pth --shape 736 960 --postprocess --soft_weights_loading --out_name fcn_hailo.onnx')
     main()
