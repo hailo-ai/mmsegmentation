@@ -1,28 +1,20 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import argparse
-import logging
 import os
 import os.path as osp
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
 
 from mmengine.config import Config, DictAction
-from mmengine.logging import print_log
 from mmengine.runner import Runner
-
 from mmseg.registry import RUNNERS
 
 import onnx
 from onnxsim import simplify
-from mmseg.models.utils import resize
-
-import torch.nn.functional as F
 
 from collections import OrderedDict
-import warnings
 
-def load_pretrained_weights_soft(model, checkpoint):
+def load_pretrained_weights_soft(model, checkpoint, logger):
 
     if 'state_dict' in checkpoint:
         state_dict = checkpoint['state_dict']
@@ -49,15 +41,14 @@ def load_pretrained_weights_soft(model, checkpoint):
     model.load_state_dict(model_dict)
 
     if len(matched_layers) == 0:
-        warnings.warn(
-            'The pretrained weights "{}" cannot be loaded, '
+        logger.warning(
+            'The pretrained weights cannot be loaded, '
             'please check the key names manually '
-            '(** ignored and continue **)'
         )
     else:
-        print('Successfully loaded pretrained weights')
+        logger.info('Successfully loaded pretrained weights')
         if len(discarded_layers) > 0:
-            print(
+            logger.warning(
                 '** The following layers are discarded '
                 'due to unmatched keys or layer size: {}'.
                 format(discarded_layers)
@@ -117,7 +108,7 @@ def dummy_prune_layer(layer, prune_ratio=0.5):
 
     return pruned_tensor
 
-def calc_sparsity(model_dict):
+def calc_sparsity(model_dict, logger):
     weights_layers_num, total_weights, total_zeros = 0, 0, 0
     for k, v in model_dict.items():
         if k.startswith('backbone.') and k.endswith('weight'):
@@ -125,9 +116,9 @@ def calc_sparsity(model_dict):
             total_weights += v.numel()
             total_zeros += (v.numel() - v.count_nonzero())
             zeros_ratio = (v.numel() - v.count_nonzero()) / v.numel() * 100.0
-            print(f"[{weights_layers_num:>2}] {k:<51}:: {v.numel() - v.count_nonzero():<5} / {v.numel():<7} ({zeros_ratio:<4.1f}%) are zeros")
-    print(f"Model has {weights_layers_num} weight layers")
-    print(f"Overall Sparsity is roughly: {100 * total_zeros / total_weights:.1f}%")
+            logger.info(f"[{weights_layers_num:>2}] {k:<51}:: {v.numel() - v.count_nonzero():<5} / {v.numel():<7} ({zeros_ratio:<4.1f}%) are zeros")
+    logger.info(f"Model has {weights_layers_num} weight layers")
+    logger.info(f"Overall Sparsity is roughly: {100 * total_zeros / total_weights:.1f}%")
 
 
 def parse_args():
@@ -213,31 +204,30 @@ def main():
         # if 'runner_type' is set in the cfg
         runner = RUNNERS.build(cfg)
 
-    # start training
     model = runner.model
     if args.checkpoint:
         ckpt = torch.load(args.checkpoint, map_location='cpu')
         if args.soft_weights_loading:
             if args.dummy_prune_ratio > 0.0:
                 ckpt = dummy_prune_ckpt(ckpt, args.dummy_prune_ratio, args.random_prune)
-            load_pretrained_weights_soft(model, ckpt)
+            load_pretrained_weights_soft(model, ckpt, runner.logger)
         else:
             if 'state_dict' in ckpt:
                 model.load_state_dict(ckpt['state_dict'])
             else:
                 model.load_state_dict(ckpt)
     
-    print("Switching to deployment model")
+    runner.logger.info("Switching to deployment model")
     # if repvgg style -> deploy
     for module in model.modules():
         if hasattr(module, 'switch_to_deploy'):
             module.switch_to_deploy()
-    calc_sparsity(model.state_dict())
+    calc_sparsity(model.state_dict(), runner.logger)
 
     # to onnx
     model.eval()
     if args.postprocess:
-        print("Adding Postprocess (Resize+ArgMax) to the model")
+        runner.logger.info("Adding Postprocess (Resize+ArgMax) to the model")
     model_with_postprocess = ModelWithPostProc(model, args)
     model_with_postprocess.eval()
 
@@ -256,9 +246,9 @@ def main():
         model_onnx = onnx.load(args.out_name)
         model_simp, check = simplify(model_onnx)
         onnx.save(model_simp, args.out_name)
-        print('Simplified model saved at: ', args.out_name)
+        runner.logger.info(f"Simplified model saved at: {args.out_name}")
     else:
-        print('Model saved at: ', args.out_name)
+        runner.logger.info(f"Model saved at: {args.out_name}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

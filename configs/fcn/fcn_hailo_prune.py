@@ -19,15 +19,16 @@ test_cfg = dict(type='TestLoop')
 # default hooks - logger & checkpoint configs
 default_hooks = dict(
 
-    # print log every 100 iterations.
+    # print log every 500 iterations.
     logger=dict(type='LoggerHook', interval=500, log_metric_by_epoch=False),
 
     # enable the parameter scheduler.
     param_scheduler=dict(type='ParamSchedulerHook'),
 
     # save checkpoint every 1 epoch.
-    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=2976, save_best='mIoU', rule='greater', max_keep_ckpts=5),  # 2976 (2Epoches), 7440 (5 Epoches) , max_keep_ckpts=5
-)
+    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=1488, save_best='mIoU', rule='greater',
+                    max_keep_ckpts=5, save_begin=163680),  # 2976 (2Epoches), 7440 (5 Epoches) , max_keep_ckpts=5
+                    )
 
 # learning policy: taken from the recipe
 # custom hooks
