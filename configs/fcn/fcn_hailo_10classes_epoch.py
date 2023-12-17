@@ -10,27 +10,31 @@ optim_wrapper = dict(type='OptimWrapper', optimizer=optimizer, clip_grad=None)
 # learning policy
 param_scheduler = [
 	dict(
-		type='LinearLR', start_factor=0.2, by_epoch=False, begin=0, end=7440),
+		type='LinearLR', start_factor=0.2, begin=0, end=1),
     dict(
-        type='CosineAnnealingLR', begin=7440, end=74400, eta_min=0.00001, by_epoch=False)
+        type='CosineAnnealingLR', begin=1, end=5, eta_min=0.00001)
 ]
 
 # runtime settings
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=74400, val_interval=1488)
+train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=5, val_interval=1)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
 # default hooks - logger & checkpoint configs
 default_hooks = dict(
 
-    # print log every 400 iterations.
-    logger=dict(type='LoggerHook', interval=400, log_metric_by_epoch=False),
+    # print log every 100 iterations.
+    logger=dict(type='LoggerHook', interval=1),  #, log_metric_by_epoch=False),
 
     # enable the parameter scheduler.
     param_scheduler=dict(type='ParamSchedulerHook'),
 
     # save checkpoint every 5 epochs.
-    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=7440, save_best='mIoU', rule='greater', max_keep_ckpts=5),
+    checkpoint=dict(type='CheckpointHook',
+                    interval=1,
+                    save_best='mIoU',
+                    rule='greater',
+                    max_keep_ckpts=5),
 )
 
 # tensorboard vis ('LocalVisBackend' might be redundant)  save_dir='./tf_dir/<exp_name>'

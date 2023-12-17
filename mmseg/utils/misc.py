@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 import numpy as np
 import torch
 import torch.nn.functional as F
-
+from collections import OrderedDict
 from .typing_utils import SampleList
 
 
@@ -116,3 +116,61 @@ def stack_batch(inputs: List[torch.Tensor],
                     pad_shape=pad_img.shape[-2:]))
 
     return torch.stack(padded_inputs, dim=0), padded_samples
+
+
+def load_pretrained_weights_soft(model, checkpoint, logger):
+
+    if 'state_dict' in checkpoint:
+        state_dict = checkpoint['state_dict']
+    elif 'model' in checkpoint:
+        state_dict = checkpoint['model']
+    else:
+        state_dict = checkpoint
+
+    model_dict = model.state_dict()
+    new_state_dict = OrderedDict()
+    matched_layers, discarded_layers = [], []
+
+    for k, v in state_dict.items():
+        if k.startswith('module.'):
+            k = k[7:] # discard module.
+
+        if k in model_dict and model_dict[k].size() == v.size():
+            new_state_dict[k] = v
+            matched_layers.append(k)
+        else:
+            discarded_layers.append(k)
+
+    model_dict.update(new_state_dict)
+    model.load_state_dict(model_dict)
+
+    if len(matched_layers) == 0:
+        logger.warning(
+            'The pretrained weights cannot be loaded, '
+            'please check the key names manually '
+        )
+    else:
+        logger.info('Successfully loaded pretrained weights')
+        if len(discarded_layers) > 0:
+            logger.warning(
+                '** The following layers are discarded '
+                'due to unmatched keys or layer size: {}'.
+                format(discarded_layers)
+            )
+    return
+
+
+def calc_sparsity(model_dict, logger, verbose=False):
+    weights_layers_num, total_weights, total_zeros = 0, 0, 0
+    prefix = next(iter(model_dict)).split('backbone.stage0')[0]
+    for k, v in model_dict.items():
+        if k.startswith(prefix) and k.endswith('weight'):
+            weights_layers_num += 1
+            total_weights += v.numel()
+            total_zeros += (v.numel() - v.count_nonzero())
+            zeros_ratio = (v.numel() - v.count_nonzero()) / v.numel() * 100.0
+            if verbose:
+                logger.info(f"[{weights_layers_num:>2}] {k:<51}:: {v.numel() - v.count_nonzero():<5} / {v.numel():<7}"
+                            f" ({zeros_ratio:<4.1f}%) are zeros")
+    logger.info(f"Model has {weights_layers_num} weight layers")
+    logger.info(f"Overall Sparsity is roughly: {100 * total_zeros / total_weights:.1f}%")

@@ -16,7 +16,7 @@ init_sparsity: 0.01
 final_sparsity: 0.60
 pruning_start_epoch: 60
 pruning_end_epoch: 110
-pruning_update_frequency: 5.0
+pruning_update_frequency: 2.0
 
 #Modifiers
 training_modifiers:
@@ -38,31 +38,3 @@ pruning_modifiers:
     end_epoch: eval(pruning_end_epoch)
     update_frequency: eval(pruning_update_frequency)
 ---
-
-training_modifiers:
-  - !EpochRangeModifier
-    start_epoch: 0
-    end_epoch: eval(num_epochs)
-
-  - !LearningRateFunctionModifier
-    start_epoch: 3
-    end_epoch: eval(num_epochs)
-    lr_func: linear
-    init_lr: eval(init_lr)
-    final_lr: eval(final_lr)
-
-  - !LearningRateFunctionModifier
-    start_epoch: 0
-    end_epoch: 3
-    lr_func: linear
-    init_lr: eval(weights_warmup_lr)
-    final_lr: eval(init_lr)
-    param_groups: [0, 1]
-
-  - !LearningRateFunctionModifier
-    start_epoch: 0
-    end_epoch: 3
-    lr_func: linear
-    init_lr: eval(biases_warmup_lr)
-    final_lr: eval(init_lr)
-    param_groups: [2]

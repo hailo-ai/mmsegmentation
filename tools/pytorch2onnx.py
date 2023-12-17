@@ -8,61 +8,20 @@ import torch.nn as nn
 from mmengine.config import Config, DictAction
 from mmengine.runner import Runner
 from mmseg.registry import RUNNERS
+from mmseg.utils.misc import calc_sparsity, load_pretrained_weights_soft
 
 import onnx
 from onnxsim import simplify
 
-from collections import OrderedDict
-
-def load_pretrained_weights_soft(model, checkpoint, logger):
-
-    if 'state_dict' in checkpoint:
-        state_dict = checkpoint['state_dict']
-    elif 'model' in checkpoint:
-        state_dict = checkpoint['model']
-    else:
-        state_dict = checkpoint
-
-    model_dict = model.state_dict()
-    new_state_dict = OrderedDict()
-    matched_layers, discarded_layers = [], []
-
-    for k, v in state_dict.items():
-        if k.startswith('module.'):
-            k = k[7:] # discard module.
-
-        if k in model_dict and model_dict[k].size() == v.size():
-            new_state_dict[k] = v
-            matched_layers.append(k)
-        else:
-            discarded_layers.append(k)
-
-    model_dict.update(new_state_dict)
-    model.load_state_dict(model_dict)
-
-    if len(matched_layers) == 0:
-        logger.warning(
-            'The pretrained weights cannot be loaded, '
-            'please check the key names manually '
-        )
-    else:
-        logger.info('Successfully loaded pretrained weights')
-        if len(discarded_layers) > 0:
-            logger.warning(
-                '** The following layers are discarded '
-                'due to unmatched keys or layer size: {}'.
-                format(discarded_layers)
-            )
-
 
 def dummy_prune_ckpt(ckpt, prune_ratio=0.5, random_prune=False):
+    prefix = next(iter(ckpt['state_dict'])).split('backbone.stage0')[0]
     for k, v in ckpt['state_dict'].items():
-        if k.startswith('backbone.') and k.endswith('.rbr_dense.conv.weight'):
+        if k.startswith(prefix) and k.endswith('.rbr_dense.conv.weight'):
             if random_prune:  # Sparsify layer randomly:
                 v = random_prune_layer(v, prune_ratio)
             else:  # Sparsify layer according to magnitude:
                 v = dummy_prune_layer(v, prune_ratio)
-    calc_sparsity(ckpt['state_dict'])
     return ckpt
 
 
@@ -107,18 +66,6 @@ def dummy_prune_layer(layer, prune_ratio=0.5):
     pruned_tensor = flattened_layer.reshape(layer.shape)
 
     return pruned_tensor
-
-def calc_sparsity(model_dict, logger):
-    weights_layers_num, total_weights, total_zeros = 0, 0, 0
-    for k, v in model_dict.items():
-        if k.startswith('backbone.') and k.endswith('weight'):
-            weights_layers_num += 1
-            total_weights += v.numel()
-            total_zeros += (v.numel() - v.count_nonzero())
-            zeros_ratio = (v.numel() - v.count_nonzero()) / v.numel() * 100.0
-            logger.info(f"[{weights_layers_num:>2}] {k:<51}:: {v.numel() - v.count_nonzero():<5} / {v.numel():<7} ({zeros_ratio:<4.1f}%) are zeros")
-    logger.info(f"Model has {weights_layers_num} weight layers")
-    logger.info(f"Overall Sparsity is roughly: {100 * total_zeros / total_weights:.1f}%")
 
 
 def parse_args():
@@ -216,13 +163,13 @@ def main():
                 model.load_state_dict(ckpt['state_dict'])
             else:
                 model.load_state_dict(ckpt)
-    
+
     runner.logger.info("Switching to deployment model")
     # if repvgg style -> deploy
     for module in model.modules():
         if hasattr(module, 'switch_to_deploy'):
             module.switch_to_deploy()
-    calc_sparsity(model.state_dict(), runner.logger)
+    calc_sparsity(model.state_dict(), runner.logger, True)
 
     # to onnx
     model.eval()
@@ -231,7 +178,7 @@ def main():
     model_with_postprocess = ModelWithPostProc(model, args)
     model_with_postprocess.eval()
 
-    imgs = torch.zeros(1,3, args.shape[0], args.shape[1], dtype=torch.float32).to(device)
+    imgs = torch.zeros(1, 3, args.shape[0], args.shape[1], dtype=torch.float32).to(device)
     outputs = model_with_postprocess(imgs)
 
     torch.onnx.export(model_with_postprocess,

@@ -5,6 +5,7 @@ import os
 import os.path as osp
 
 from sparsity import sparseml_hook
+from mmseg.engine.hooks import checkpoint_hook
 
 from mmengine.config import Config, DictAction
 from mmengine.logging import print_log
@@ -93,7 +94,6 @@ def main():
     cfg.resume = args.resume
     cfg.recipe = args.recipe
     cfg.recipe_args = args.recipe_args
-    print(f"{cfg.resume=}, {cfg.load_from}")
     # build the runner from config
     if 'runner_type' not in cfg:
         # build the default runner
