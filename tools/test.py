@@ -2,9 +2,14 @@
 import argparse
 import os
 import os.path as osp
+import torch
+from copy import deepcopy
+from sparsity import sparseml_hook
 
 from mmengine.config import Config, DictAction
 from mmengine.runner import Runner
+from mmseg.engine.hooks import checkpoint_hook
+from mmseg.utils.misc import calc_sparsity, load_pretrained_weights_soft
 
 
 # TODO: support fuse_conv_bn, visualization, and format_only
@@ -28,6 +33,10 @@ def parse_args():
         help='directory where painted images will be saved. '
         'If specified, it will be automatically saved '
         'to the work_dir/timestamp/show_dir')
+    parser.add_argument(
+        '--deploy',
+        action='store_true',
+        help='switch model to deployment mode and calculate sparsity ratio')
     parser.add_argument(
         '--wait-time', type=float, default=2, help='the interval of show (s)')
     parser.add_argument(
@@ -114,7 +123,16 @@ def main():
 
     # build the runner from config
     runner = Runner.from_cfg(cfg)
-
+    if args.deploy:
+        ckpt = torch.load(args.checkpoint, map_location='cpu')
+        model_deploy = deepcopy(runner.model)
+        load_pretrained_weights_soft(model_deploy, ckpt, runner.logger)
+        runner.logger.info("Calculating sparsity ratio on deployment model")
+        # if repvgg style -> deploy
+        for module in model_deploy.modules():
+            if hasattr(module, 'switch_to_deploy'):
+                module.switch_to_deploy()
+        calc_sparsity(model_deploy.state_dict(), runner.logger, True)
     # start testing
     runner.test()
 

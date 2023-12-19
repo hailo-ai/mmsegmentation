@@ -4,11 +4,12 @@ import logging
 import os
 import os.path as osp
 
+from sparsity import sparseml_hook
+from mmseg.engine.hooks import checkpoint_hook
+
 from mmengine.config import Config, DictAction
 from mmengine.logging import print_log
 from mmengine.runner import Runner
-
-from mmseg.registry import RUNNERS
 
 
 def parse_args():
@@ -20,6 +21,11 @@ def parse_args():
         action='store_true',
         default=False,
         help='resume from the latest checkpoint in the work_dir automatically')
+    parser.add_argument('--recipe', type=str, default=None, help='Path to a sparsification recipe, '
+                                                                 'see https://github.com/neuralmagic/sparseml for more information')
+    parser.add_argument("--recipe-args", type=str, default=None, help = 'A json string, csv key=value string, or dictionary '
+                                                                        'containing arguments to override the root arguments '
+                                                                        'within the recipe such as learning rate or num epochs')
     parser.add_argument(
         '--amp',
         action='store_true',
@@ -86,7 +92,8 @@ def main():
 
     # resume training
     cfg.resume = args.resume
-
+    cfg.recipe = args.recipe
+    cfg.recipe_args = args.recipe_args
     # build the runner from config
     if 'runner_type' not in cfg:
         # build the default runner

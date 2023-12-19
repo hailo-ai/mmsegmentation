@@ -1,67 +1,71 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import argparse
-import logging
 import os
 import os.path as osp
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
 
 from mmengine.config import Config, DictAction
-from mmengine.logging import print_log
 from mmengine.runner import Runner
-
 from mmseg.registry import RUNNERS
+from mmseg.utils.misc import calc_sparsity, load_pretrained_weights_soft
 
 import onnx
 from onnxsim import simplify
-from mmseg.models.utils import resize
 
-import torch.nn.functional as F
 
-from collections import OrderedDict
-import warnings
+def dummy_prune_ckpt(ckpt, prune_ratio=0.5, random_prune=False):
+    prefix = next(iter(ckpt['state_dict'])).split('backbone.stage0')[0]
+    for k, v in ckpt['state_dict'].items():
+        if k.startswith(prefix) and k.endswith('.rbr_dense.conv.weight'):
+            if random_prune:  # Sparsify layer randomly:
+                v = random_prune_layer(v, prune_ratio)
+            else:  # Sparsify layer according to magnitude:
+                v = dummy_prune_layer(v, prune_ratio)
+    return ckpt
 
-def load_pretrained_weights_soft(model, checkpoint):
 
-    if 'state_dict' in checkpoint:
-        state_dict = checkpoint['state_dict']
-    elif 'model' in checkpoint:
-        state_dict = checkpoint['model']
-    else:
-        state_dict = checkpoint
+def random_prune_layer(layer, prune_ratio=0.5):
+    """
+    Randomly prune (set to zero) a fraction of elements in a PyTorch tensor.
 
-    model_dict = model.state_dict()
-    new_state_dict = OrderedDict()
-    matched_layers, discarded_layers = [], []
+    Args:
+        layer (torch.Tensor): Input tensor of shape [B, C, H, W].
+        prune_ratio (float): Fraction of elements to set to zero.
 
-    for k, v in state_dict.items():
-        if k.startswith('module.'):
-            k = k[7:] # discard module.
+    Returns:
+        torch.Tensor: Pruned tensor with the same shape as the input.
+    """
+    # Determine the number of elements to prune
+    num_elements = layer.numel()
+    num_prune = int(prune_ratio * num_elements)
 
-        if k in model_dict and model_dict[k].size() == v.size():
-            new_state_dict[k] = v
-            matched_layers.append(k)
-        else:
-            discarded_layers.append(k)
+    # Create a mask with zeros and ones to select the elements to prune
+    mask = torch.ones(num_elements)
+    mask[:num_prune] = 0
+    mask = mask[torch.randperm(num_elements)]  # Shuffle the mask randomly
+    mask = mask.view(layer.shape)
 
-    model_dict.update(new_state_dict)
-    model.load_state_dict(model_dict)
+    # Apply the mask to the input tensor to prune it
+    layer *= mask
+    return layer
 
-    if len(matched_layers) == 0:
-        warnings.warn(
-            'The pretrained weights "{}" cannot be loaded, '
-            'please check the key names manually '
-            '(** ignored and continue **)'
-        )
-    else:
-        print('Successfully loaded pretrained weights')
-        if len(discarded_layers) > 0:
-            print(
-                '** The following layers are discarded '
-                'due to unmatched keys or layer size: {}'.
-                format(discarded_layers)
-            )
+
+def dummy_prune_layer(layer, prune_ratio=0.5):
+    # Flatten the tensor
+    flattened_layer = layer.flatten()
+    # Get the absolute values
+    abs_values = torch.abs(flattened_layer)
+    # Get indices sorted by absolute values
+    sorted_indices = torch.argsort(abs_values)
+    # Determine the threshold index
+    threshold_index = int(prune_ratio * len(sorted_indices))
+    # Set values below the threshold to zero
+    flattened_layer[sorted_indices[:threshold_index]] = 0
+    # Reshape the tensor back to its original shape
+    pruned_tensor = flattened_layer.reshape(layer.shape)
+
+    return pruned_tensor
 
 
 def parse_args():
@@ -69,10 +73,13 @@ def parse_args():
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument('--checkpoint', help='checkpoint file', default=None)
     parser.add_argument('--no_simplify', action='store_false')
-    parser.add_argument('--no_postprocess', action='store_true', default=False)
+    parser.add_argument('--postprocess', action='store_true', default=False)
     parser.add_argument('--shape', nargs=2, type=int, default=[1024, 1920])
+    parser.add_argument('-o', '--opset', type=int, default=13)
     parser.add_argument('--out_name', default='fcn.onnx', type=str, help="Name for the onnx output")
-    parser.add_argument('--soft_weights_loading',action='store_true', default=False)
+    parser.add_argument('--soft_weights_loading', action='store_true', default=False)
+    parser.add_argument('--dummy_prune_ratio', type=float, default=0.0, help="Applies dummy pruning with ratio")
+    parser.add_argument('--random_prune', action='store_true', default=False, help="Set method to prune as random (default: Minimum absolute value)")
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -103,7 +110,7 @@ class ModelWithPostProc(torch.nn.Module):
         def __init__(self, model, args):
             super(ModelWithPostProc, self).__init__()
             self.model = model
-            self.post_proc_flag = not(args.no_postprocess)
+            self.post_proc_flag = args.postprocess
             self.shape = args.shape
             self.bilinear_resize = nn.Upsample(size=self.shape, mode='bilinear', align_corners=True)
 
@@ -144,40 +151,53 @@ def main():
         # if 'runner_type' is set in the cfg
         runner = RUNNERS.build(cfg)
 
-    # start training
     model = runner.model
     if args.checkpoint:
         ckpt = torch.load(args.checkpoint, map_location='cpu')
         if args.soft_weights_loading:
-            load_pretrained_weights_soft(model, ckpt)
+            if args.dummy_prune_ratio > 0.0:
+                ckpt = dummy_prune_ckpt(ckpt, args.dummy_prune_ratio, args.random_prune)
+            load_pretrained_weights_soft(model, ckpt, runner.logger)
         else:
             if 'state_dict' in ckpt:
                 model.load_state_dict(ckpt['state_dict'])
             else:
                 model.load_state_dict(ckpt)
-    
+
+    runner.logger.info("Switching to deployment model")
     # if repvgg style -> deploy
     for module in model.modules():
         if hasattr(module, 'switch_to_deploy'):
             module.switch_to_deploy()
+    calc_sparsity(model.state_dict(), runner.logger, True)
 
     # to onnx
     model.eval()
+    if args.postprocess:
+        runner.logger.info("Adding Postprocess (Resize+ArgMax) to the model")
     model_with_postprocess = ModelWithPostProc(model, args)
     model_with_postprocess.eval()
-    imgs = torch.zeros(1,3, args.shape[0], args.shape[1], dtype=torch.float32).to(device)
+
+    imgs = torch.zeros(1, 3, args.shape[0], args.shape[1], dtype=torch.float32).to(device)
     outputs = model_with_postprocess(imgs)
 
-    torch.onnx.export(model_with_postprocess, imgs, args.out_name, input_names=['test_input'], output_names=['output'], training=torch.onnx.TrainingMode.PRESERVE, opset_version=13)
-    print('model saved at: ', args.out_name)
+    torch.onnx.export(model_with_postprocess,
+                      imgs, args.out_name,
+                      input_names=['test_input'],
+                      output_names=['output'],
+                      training=torch.onnx.TrainingMode.PRESERVE,
+                      opset_version=args.opset)
 
     # if also simplify
     if args.no_simplify:
         model_onnx = onnx.load(args.out_name)
         model_simp, check = simplify(model_onnx)
-        onnx.save(model_simp, args.out_name[0:-5] + '_simplify.onnx')
-        print('model simplified saved at: ', args.out_name[0:-5] + '_simplify.onnx')
+        onnx.save(model_simp, args.out_name)
+        runner.logger.info(f"Simplified model saved at: {args.out_name}")
+    else:
+        runner.logger.info(f"Model saved at: {args.out_name}")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(epilog='Example: CUDA_VISIBLE_DEVICES=0 python tools/pytorch2onnx.py configs/fcn/fcn8_r18_hailo.py --checkpoint work_dirs/fcn8_r18_hailo_iterbased/epoch_1.pth --out_name my_fcn_model.onnx --shape 600 800')
+    parser = argparse.ArgumentParser(
+        epilog='Example: CUDA_VISIBLE_DEVICES=0 python tools/pytorch2onnx.py configs/fcn/fcn_hailo_10classes.py --checkpoint work_dirs/fcn_hailo/iter_173760.pth --shape 736 960 --postprocess --soft_weights_loading --out_name fcn_hailo.onnx')
     main()
