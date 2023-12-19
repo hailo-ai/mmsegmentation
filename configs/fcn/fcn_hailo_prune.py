@@ -4,8 +4,8 @@ _base_ = [
 ]
 
 resume = True
-# load_from='./work_dirs/fcn_hailo_eta1e5/iter_68448.pth'  # best checkpoint path of full training (fcn_hailo_10classes). Start of pruning procedure
-load_from='./work_dirs/fcn_hailo_eta1e5_eve/iter_74400.pth'
+# best checkpoint path of full training (fcn_hailo_10classes). Start of pruning procedure:
+load_from = './work_dirs/fcn_hailo_eta1e5_eve/iter_74400.pth'
 
 # optimizer
 optimizer = dict(type='Adam', lr=0.0001, weight_decay=1e-5)
@@ -13,7 +13,7 @@ optim_wrapper = dict(type='OptimWrapper', optimizer=optimizer, clip_grad=None)
 
 
 # runtime settings
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=178560, val_interval=1488)  # 74400 (50 epochs), 89280 (60 epochs), 104160 (70 epochs), 89280 (80 epochs), 173760
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=178560, val_interval=1488)  # 74400 (50 epochs), 178560 (120)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -27,17 +27,12 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
     )
 
-    # # save checkpoint every 1 epoch.
-    # checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=1488, save_best='mIoU', rule='greater',
-    #                 max_keep_ckpts=5, save_begin=163680),  # 2976 (2Epoches), 7440 (5 Epoches)
-                    # )
-
 # learning policy: taken from the recipe
 # custom hooks
 sparseml_hook = dict(type='SparseMLHook', priority='NORMAL')
-# sparseml_hook = dict(type='SparseMLHook', interval=10, priority='NORMAL')
+# Saving best checkpoint starts after pruning hits final ratio
 ext_checkpoint_hook = dict(type='ExtCheckpointHook', by_epoch=False, interval=1488, save_best='mIoU', rule='greater',
-                           max_keep_ckpts=5, save_begin=163680)  # 2976 (2Epoches), 7440 (5 Epoches), 80352 (54), 83328 (56), 163680
+                           max_keep_ckpts=5, save_begin=163680)  # 163680 (110 epochs)
 custom_hooks = [sparseml_hook, ext_checkpoint_hook]
 
 # tensorboard vis ('LocalVisBackend' might be redundant)  save_dir='./tf_dir/<exp_name>'

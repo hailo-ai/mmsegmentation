@@ -30,7 +30,8 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
 
     # save checkpoint every 5 epochs.
-    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=7440, save_best='mIoU', rule='greater', max_keep_ckpts=5),
+    checkpoint=dict(type='CheckpointHook', by_epoch=False, interval=7440, save_best='mIoU', rule='greater',
+                    max_keep_ckpts=5),
 )
 
 # tensorboard vis ('LocalVisBackend' might be redundant)  save_dir='./tf_dir/<exp_name>'
